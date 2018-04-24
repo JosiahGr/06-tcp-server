@@ -3,9 +3,10 @@
 const net = require('net');
 const logger = require('./logger');
 const faker = require('faker');
+const Client = require('./client');
 
 const app = net.createServer();
-let clients = [];
+let clientPool = [];
 
 const parseCommand = (message, socket) => {
   if (!message.startsWith('@')) {
@@ -18,10 +19,32 @@ const parseCommand = (message, socket) => {
 
   switch (command) {
     case '@list': {
-      const clientNames = clients.map(client => client.name).join('\n');
+      const clientNames = clientPool.map(client => client.name).join('\n');
       socket.write(`${clientNames}\n`);
       break;
     }
+
+    case '@quit': {
+      socket.write('You have been logged out.\n');
+      socket.end();
+      break;
+    }
+
+    // case '@nickname': {
+    // };
+
+    case '@dm': {
+      const reciever = parsedMessage[1];
+      const message = parsedMessage.slice(2).join(' ');
+
+      clientPool.foreach(user) {
+        if(user.nickname === reciever) {
+          // add tempelate literals
+          user.socket.write(`${message}`);
+        }
+        break;
+      }
+    };
 
     default:
       socket.write('INVALID COMMAND');
@@ -31,13 +54,13 @@ const parseCommand = (message, socket) => {
 };
 
 const removeClient = socket => () => {
-  clients = clients.filter(client => client !== socket);
+  clientPool = clientPool.filter(client => client !== socket);
   logger.log(logger.INFO, `Removing ${socket.name}`);
 };
 
 app.on('connection', (socket) => {
   logger.log(logger.INFO, 'new socket');
-  clients.push(socket);
+  clientPool.push(socket);
   socket.write('Welcome to the chat!\n');
 
   socket.on('data', (data) => {
@@ -48,7 +71,7 @@ app.on('connection', (socket) => {
       return;
     }
 
-    clients.forEach((client) => {
+    clientPool.forEach((client) => {
       if (client !== socket) {
         client.write(`${socket.name}: ${message}\n`);
       }
