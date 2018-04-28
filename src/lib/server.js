@@ -2,13 +2,12 @@
 
 const net = require('net');
 const logger = require('./logger');
-const faker = require('faker');
 const Client = require('./client');
 
 const app = net.createServer();
 let clientPool = [];
 
-const parseCommand = (message, socket) => {
+const parseCommand = (message, client) => {
   if (!message.startsWith('@')) {
     return false;
   }
@@ -19,35 +18,37 @@ const parseCommand = (message, socket) => {
 
   switch (command) {
     case '@list': {
-      const clientNames = clientPool.map(client => client.name).join('\n');
-      socket.write(`${clientNames}\n`);
+      const clientNames = clientPool.map(client1 => client1.nickname).join('\n');
+      client.write(`${clientNames}\n`);
       break;
     }
 
     case '@quit': {
-      socket.write('You have been logged out.\n');
-      socket.end();
+      client.socket.write('You have been logged out.\n');
+      client.socket.end();
       break;
     }
 
-    // case '@nickname': {
-    // };
+    case '@nickname': {
+      client.nickname = [parsedMessage[1]];
+      client.write(`Your name has been changed to ${client.nickname}`);
+      break;
+    }
 
     case '@dm': {
       const reciever = parsedMessage[1];
-      const message = parsedMessage.slice(2).join(' ');
+      const privateMessage = parsedMessage.slice(2).join(' ');
 
-      clientPool.foreach(user) {
-        if(user.nickname === reciever) {
-          // add tempelate literals
-          user.socket.write(`${message}`);
+      clientPool.forEach((client1) => {
+        if (client1.nickname === reciever) {
+          client1.socket.write(`${client.nickname} PRIVATE: ${privateMessage}`);
         }
-        break;
-      }
-    };
+      });
+      break;
+    }
 
     default:
-      socket.write('INVALID COMMAND');
+      client.socket.write('INVALID COMMAND');
       break;
   }
   return true;
@@ -60,7 +61,11 @@ const removeClient = socket => () => {
 
 app.on('connection', (socket) => {
   logger.log(logger.INFO, 'new socket');
-  clientPool.push(socket);
+
+  const newClient = new Client(socket);
+  
+  clientPool.push(newClient);
+  socket.write(`Your name is ${newClient.nickname}\n`);
   socket.write('Welcome to the chat!\n');
 
   socket.on('data', (data) => {
@@ -72,8 +77,8 @@ app.on('connection', (socket) => {
     }
 
     clientPool.forEach((client) => {
-      if (client !== socket) {
-        client.write(`${socket.name}: ${message}\n`);
+      if (client.socket !== socket) {
+        client.socket.write(`${client.nickname}: ${message}\n`);
       }
     });
   });
